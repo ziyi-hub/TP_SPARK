@@ -80,3 +80,53 @@ print("Newest year of observation {}".format(newest_year))
 
 
 # Q5
+
+
+print("8. Display the 10 roads the most of ten taken")
+from_index = findCol(firstLine, "VoyageFrom")
+to_index = findCol(firstLine, "VoyageTo")
+
+# Utiliser l'opération 'map' pour créer un RDD contenant des paires ("VoyageFrom", "VoyageTo")
+departures = entries.filter(lambda x: x[from_index] != "NA" and x[to_index] != "NA")
+routes = departures.map(lambda x: ((x[from_index].replace('"',''), x[to_index].replace('"','')), 1))
+
+# Utiliser l'opération 'groupByKey' pour regrouper les données par paires de routes
+grouped_routes = routes.groupByKey()
+
+# Calculer le nombre d'occurrences de chaque paire de routes
+count_routes = grouped_routes.map(lambda x: ((x[0][0], x[0][1]), len(x[1])))
+
+# Trouver les 10 routes les plus empruntées
+top_10_routes = count_routes.takeOrdered(10, key=lambda x: -x[1])
+
+# Display the result
+print("The 10 most often taken roads:")
+for road, count in top_10_routes:
+	print("{}-{}: {} times".format(road[0], road[1], count))
+
+# Code de l'ami
+# departures = entries.filter(lambda x: x[from_index] != "NA" and x[to_index] != "NA").map(lambda x: (tuple(sorted((x[from_index], x[to_index]))), 1))
+# result = departures.reduceByKey(lambda x, y: x + y).takeOrdered(10, key=lambda x: -x[1])
+# print("Top 10 roads taken often")
+# print(result)
+
+
+print("9. Compute the hottest month on average over the years consid- ering all temperatures")
+temperature_index = findCol(firstLine, "ProbTair")
+month_index = findCol(firstLine, "Month")
+temperature = entries.filter(lambda x: x[temperature_index] != 'NA')
+temperature_by_month = temperature.map(lambda x: (int(x[month_index]), float(x[temperature_index]))).distinct()
+
+# Utiliser l'opération 'groupByKey' pour regrouper les données par mois
+regrouped_by_month = temperature_by_month.groupByKey()
+
+# Calculer la température moyenne pour chaque mois = la somme de toutes les valeurs de température pour le mois donné divise par le nombre de valeurs de température
+temperature_moyenne_par_mois = regrouped_by_month.map(lambda x: (x[0], sum(x[1]) / len(x[1])))
+
+#print(temperature_moyenne_par_mois.collect())
+
+# Trouver le mois le plus chaud basé sur la température moyenne
+mois_le_plus_chaud = temperature_moyenne_par_mois.max(lambda x: x[1])
+
+# Afficher le résultat
+print("Le mois le plus chaud est le mois {} avec une température moyenne de {:.2f} degrés Celsius".format(mois_le_plus_chaud[0], mois_le_plus_chaud[1]))
