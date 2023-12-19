@@ -55,7 +55,7 @@ for elem in nationalities.sortBy(lambda x: x).take(5):
 	print(elem)
 
 # Count the total number of observations
-print("Count the total number of observations included in the dataset")
+print("2. Count the total number of observations included in the dataset")
 total_observations = entries.count()
 
 # Display the result
