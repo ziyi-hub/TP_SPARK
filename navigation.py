@@ -45,10 +45,19 @@ column_index=findCol(firstLine, "Nationality")
 print("{} corresponds to column {}".format("Nationality", column_index))
 
 # Use 'map' to create a RDD with all nationalities and 'distinct' to remove duplicates 
-nationalities = entries.map(lambda x: x[column_index]).distinct()
+nationalities = entries.map(lambda x: x[column_index]).map(lambda x: x.replace(" ", "")).distinct()
+# nationalities = entries.map(lambda x: x[column_index].replace(" ", "")).distinct()
 
 # Display the 5 first nationalities
 print("A few examples of nationalities:")
 for elem in nationalities.sortBy(lambda x: x).take(5):
 	print(elem)
+
+# Count the total number of observations
+total_observations = entries.count()
+
+# Display the result
+print("Total number of observations: {}".format(total_observations))
+
+
 
