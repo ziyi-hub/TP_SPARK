@@ -44,7 +44,8 @@ entries.cache()
 column_index=findCol(firstLine, "Nationality")
 print("{} corresponds to column {}".format("Nationality", column_index))
 
-# Use 'map' to create a RDD with all nationalities and 'distinct' to remove duplicates 
+# Use 'map' to create a RDD with all nationalities and 'distinct' to remove duplicates
+print("1. Consider these two entries as the same one")
 nationalities = entries.map(lambda x: x[column_index]).map(lambda x: x.replace(" ", "")).distinct()
 # nationalities = entries.map(lambda x: x[column_index].replace(" ", "")).distinct()
 
@@ -54,10 +55,27 @@ for elem in nationalities.sortBy(lambda x: x).take(5):
 	print(elem)
 
 # Count the total number of observations
+print("Count the total number of observations included in the dataset")
 total_observations = entries.count()
 
 # Display the result
 print("Total number of observations: {}".format(total_observations))
 
+#Count the number of years over which observations have been made
+year_index = findCol(firstLine, "Year")
+print("{} corresponds to column {}".format("Year", year_index))
+
+observations = entries.filter(lambda x: findCol(firstLine, "Distance") != "NA")
+observations.cache()
+years = observations.map(lambda x: x[year_index]).distinct()
+
+print("3. Count the number of years over which observations have been made")
+print(f"Number of years {years.count()}")
+
+print("4. Display the oldest and the newest year of observation")
+oldest_year = years.min()
+newest_year = years.max()
+print("Oldest year of observation {}".format(oldest_year))
+print("Newest year of observation {}".format(newest_year))
 
 
