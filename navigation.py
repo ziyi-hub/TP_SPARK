@@ -14,7 +14,7 @@ def findCol(firstLine, name):
 #### Driver program
 
 # start spark with 1 worker thread
-sc = SparkContext("local[1]")
+sc = SparkContext("local[2]")
 sc.setLogLevel("ERROR")
 
 
@@ -44,89 +44,103 @@ entries.cache()
 column_index=findCol(firstLine, "Nationality")
 print("{} corresponds to column {}".format("Nationality", column_index))
 
+# Q1
 # Use 'map' to create a RDD with all nationalities and 'distinct' to remove duplicates
 print("1. Consider these two entries as the same one")
 nationalities = entries.map(lambda x: x[column_index]).map(lambda x: x.replace(" ", "")).distinct()
-# nationalities = entries.map(lambda x: x[column_index].replace(" ", "")).distinct()
 
 # Display the 5 first nationalities
 print("A few examples of nationalities:")
 for elem in nationalities.sortBy(lambda x: x).take(5):
 	print(elem)
 
-# Count the total number of observations
-print("2. Count the total number of observations included in the dataset")
-total_observations = entries.count()
+# Q2
+print("2. Count the total number of observations included in the dataset (that are not NA)")
+observationIndex = findCol(firstLine, "OtherRem")
+observations = entries.filter(lambda x: x[observationIndex] != "NA")
+print(observations.count())
 
-# Display the result
-print("Total number of observations: {}".format(total_observations))
-
-#Count the number of years over which observations have been made
-year_index = findCol(firstLine, "Year")
-print("{} corresponds to column {}".format("Year", year_index))
-
-observations = entries.filter(lambda x: findCol(firstLine, "Distance") != "NA")
-observations.cache()
-years = observations.map(lambda x: x[year_index]).distinct()
-
+# Q3
 print("3. Count the number of years over which observations have been made")
-print(f"Number of years {years.count()}")
+yearIndex = findCol(firstLine, "Year")
+years = observations.map(lambda x: x[yearIndex]).distinct()
+print("Number of years {}".format(years.count()))
 
+#Q4
 print("4. Display the oldest and the newest year of observation")
-oldest_year = years.min()
-newest_year = years.max()
-print("Oldest year of observation {}".format(oldest_year))
-print("Newest year of observation {}".format(newest_year))
-
+oldestYear = years.min()
+newestYear = years.max()
+print("Oldest year: {}".format(oldestYear))
+print("Newest year: {}".format(newestYear))
 
 # Q5
+print("5. Display the years with the minumum and the maximum number of observations (with the corresponding number)")
+yearsObservations = observations.map(lambda x: (x[yearIndex] , 1)).reduceByKey(lambda x , y : x+y).collect()
+yearsObservations.sort(key = lambda x: x[1])
+print("Years with minimum occurance: {}".format(yearsObservations[0]))
+print("Years with maximum occurance: {}".format(yearsObservations[-1]))
 
+# Q6
+print("6. Count the distinct departure places using two methods and compare the execution time.")
+departuresIndex = findCol(firstLine, "VoyageFrom")
 
+startDistinct = time.time()
+departuresDistinct = entries.map(lambda x: x[departuresIndex]).distinct()
+endDistinct = time.time()
+print("Count (with distinct()): {}".format(departuresDistinct.count()))
+print("Execution time (with distinct()): {}".format(endDistinct - startDistinct))
+
+startReduceByKey = time.time()
+departuresReduceByKey = entries.map(lambda x: (x[departuresIndex] , 1)).reduceByKey(lambda x , y : x+y).collect()
+endReduceByKey = time.time()
+print("Count (with ReduceByKey()): {}".format(len(departuresReduceByKey)))
+print("Execution time (with ReduceByKey()): {}".format(endReduceByKey  - startReduceByKey ))
+print("using the distint() function takes less execution time than the reduceByKey() function")
+
+# Q7
+print("7. Display the 10 most popular departures")
+departuresReduceByKey.sort(key = lambda x: -x[1])
+print(departuresReduceByKey[0:9])
+
+# Q8
 print("8. Display the 10 roads the most of ten taken")
-from_index = findCol(firstLine, "VoyageFrom")
-to_index = findCol(firstLine, "VoyageTo")
+print("Version 1:")
+fromIndex = findCol(firstLine, "VoyageFrom")
+toIndex = findCol(firstLine, "VoyageTo")
 
 # Utiliser l'opération 'map' pour créer un RDD contenant des paires ("VoyageFrom", "VoyageTo")
-departures = entries.filter(lambda x: x[from_index] != "NA" and x[to_index] != "NA")
-routes = departures.map(lambda x: ((x[from_index].replace('"',''), x[to_index].replace('"','')), 1))
+departures = entries.filter(lambda x: x[fromIndex] != "NA" and x[toIndex] != "NA")
+routesV1 = departures.map(lambda x: ((x[fromIndex].replace('"',''), x[toIndex].replace('"','')), 1))
 
 # Utiliser l'opération 'groupByKey' pour regrouper les données par paires de routes
-grouped_routes = routes.groupByKey()
+groupedRoutes = routesV1.groupByKey()
 
 # Calculer le nombre d'occurrences de chaque paire de routes
-count_routes = grouped_routes.map(lambda x: ((x[0][0], x[0][1]), len(x[1])))
+countRoutes = groupedRoutes.map(lambda x: ((x[0][0], x[0][1]), len(x[1]))).collect()
 
-# Trouver les 10 routes les plus empruntées
-top_10_routes = count_routes.takeOrdered(10, key=lambda x: -x[1])
+countRoutes.sort(key = lambda x: -x[1])
+print(countRoutes[0:9])
 
-# Display the result
-print("The 10 most often taken roads:")
-for road, count in top_10_routes:
-	print("{}-{}: {} times".format(road[0], road[1], count))
+print("Version 2:")
+routesV2 = departures.map(lambda x: (tuple(sorted((x[fromIndex].replace('"',''), x[toIndex].replace('"','')))), 1)).reduceByKey(lambda x, y: x+y).collect()
+routesV2.sort(key = lambda x: -x[1])
+print(routesV2[0:9])
 
-# Code de l'ami
-# departures = entries.filter(lambda x: x[from_index] != "NA" and x[to_index] != "NA").map(lambda x: (tuple(sorted((x[from_index], x[to_index]))), 1))
-# result = departures.reduceByKey(lambda x, y: x + y).takeOrdered(10, key=lambda x: -x[1])
-# print("Top 10 roads taken often")
-# print(result)
-
-
-print("9. Compute the hottest month on average over the years consid- ering all temperatures")
-temperature_index = findCol(firstLine, "ProbTair")
-month_index = findCol(firstLine, "Month")
-temperature = entries.filter(lambda x: x[temperature_index] != 'NA')
-temperature_by_month = temperature.map(lambda x: (int(x[month_index]), float(x[temperature_index]))).distinct()
+# Q9
+print("9. Compute the hottest month on average over the years considering all temperatures reported in the dataset")
+temperatureIndex = findCol(firstLine, "ProbTair")
+monthIndex = findCol(firstLine, "Month")
+temperature = entries.filter(lambda x: x[temperatureIndex] != 'NA')
+temperatureByMonth = temperature.map(lambda x: (int(x[monthIndex]), float(x[temperatureIndex]))).distinct()
 
 # Utiliser l'opération 'groupByKey' pour regrouper les données par mois
-regrouped_by_month = temperature_by_month.groupByKey()
+regroupedByMonth = temperatureByMonth.groupByKey()
 
 # Calculer la température moyenne pour chaque mois = la somme de toutes les valeurs de température pour le mois donné divise par le nombre de valeurs de température
-temperature_moyenne_par_mois = regrouped_by_month.map(lambda x: (x[0], sum(x[1]) / len(x[1])))
-
-#print(temperature_moyenne_par_mois.collect())
+temperatureMoyenneParMois = regroupedByMonth.map(lambda x: (x[0], sum(x[1]) / len(x[1])))
 
 # Trouver le mois le plus chaud basé sur la température moyenne
-mois_le_plus_chaud = temperature_moyenne_par_mois.max(lambda x: x[1])
+moisLePlusChaud = temperatureMoyenneParMois.max(lambda x: x[1])
 
 # Afficher le résultat
-print("Le mois le plus chaud est le mois {} avec une température moyenne de {:.2f} degrés Celsius".format(mois_le_plus_chaud[0], mois_le_plus_chaud[1]))
+print("Le mois le plus chaud est le mois {} avec une température moyenne de {:.2f} degrés Celsius".format(moisLePlusChaud[0], moisLePlusChaud[1]))
